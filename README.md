@@ -107,7 +107,9 @@ SeaweedFS, que também fala S3; em produção pode ser ele ou o Cloudflare R2, t
 
 ## Produção
 
-Uma VPS com Docker (2 vCPU, 2 a 4 GB). Aponte o DNS de `DOMINIO` e de `arquivos.DOMINIO` para ela.
+Uma VPS com Docker (2 vCPU, 2 a 4 GB). Aponte o DNS de `DOMINIO` e de `arquivos.DOMINIO` para ela e
+configure o proxy reverso do servidor (com HTTPS) para repassar os dois para `127.0.0.1:3000`,
+preservando o cabeçalho `Host`.
 
 ```bash
 cd infra
@@ -118,7 +120,7 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm api node_modules/.bin/ts-node prisma/seed.ts
 ```
 
-Serviços: `caddy` (HTTPS automático, PWA estático e proxy de `/api`), `api`, `worker` (filas, leitura
+Serviços: `caddy` (porta 3000: PWA estático, proxy de `/api` e de `arquivos.DOMINIO`), `api`, `worker` (filas, leitura
 de comprovantes, avisos e PDF mensal), `migrate` (aplica as migrations antes da API subir), `postgres`,
 `redis`, `s3` (SeaweedFS, comprovantes e PDFs em `arquivos.DOMINIO`) e `backup`.
 

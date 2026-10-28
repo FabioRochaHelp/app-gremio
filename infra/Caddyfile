@@ -1,7 +1,22 @@
-# HTTPS automático (Let's Encrypt). DOMINIO vem do .env de produção.
+# Atrás do proxy reverso do servidor, que faz o HTTPS: aqui só HTTP na porta 3000.
+# DOMINIO vem do .env de produção.
+{
+	auto_https off
+	servers {
+		# Mantém o IP do cliente que o proxy do servidor repassa em X-Forwarded-For.
+		trusted_proxies static private_ranges
+	}
+}
 
-{$DOMINIO} {
+:3000 {
 	encode zstd gzip
+
+	# Comprovantes e PDFs: o navegador abre links assinados direto no armazenamento.
+	# O Host original é repassado para a assinatura conferir.
+	@arquivos host arquivos.{$DOMINIO}
+	handle @arquivos {
+		reverse_proxy s3:9000
+	}
 
 	header {
 		Strict-Transport-Security "max-age=31536000"
@@ -22,10 +37,4 @@
 		try_files {path} /index.html
 		file_server
 	}
-}
-
-# Comprovantes e PDFs: o navegador abre links assinados direto no armazenamento.
-# O Host original é repassado para a assinatura conferir.
-arquivos.{$DOMINIO} {
-	reverse_proxy s3:9000
 }

@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: gremio
       POSTGRES_DB: gremio
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +20,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6382:6379"
 
   # Armazenamento S3-compatível para comprovantes e PDFs. O MinIO deixou de
   # publicar imagens públicas; em produção pode ser trocado por R2 só pelo .env.

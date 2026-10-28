@@ -1,4 +1,6 @@
-# Produção numa VPS (fora da rede da corporação). Uso, a partir da pasta infra/:
+# Produção numa VPS (fora da rede da corporação), atrás do proxy reverso do servidor,
+# que faz o HTTPS e repassa DOMINIO e arquivos.DOMINIO para 127.0.0.1:3000.
+# Uso, a partir da pasta infra/:
 #   cp .env.prod.example .env.prod   # e preencha
 #   cp s3.prod.json.example s3.prod.json   # e troque as chaves
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
@@ -72,7 +74,8 @@ services:
       S3_ENDPOINT: http://s3:9000
       S3_ENDPOINT_PUBLICO: https://arquivos.${DOMINIO}
       PROCESSAR_FILAS: "false"
-      TRUST_PROXY: "1"
+      # Dois saltos: proxy reverso do servidor e o Caddy.
+      TRUST_PROXY: "2"
 
   # Leitura de comprovantes, avisos, PDF mensal e tarefas agendadas.
   worker:
@@ -92,13 +95,9 @@ services:
     restart: unless-stopped
     environment:
       DOMINIO: ${DOMINIO}
+    # Só o proxy reverso do servidor acessa; ele faz o HTTPS e repassa para cá.
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - caddydata:/data
-      - caddyconfig:/config
+      - "127.0.0.1:3000:3000"
     depends_on:
       - api
 
@@ -122,5 +121,3 @@ volumes:
   pgdata:
   redisdata:
   s3data:
-  caddydata:
-  caddyconfig:
