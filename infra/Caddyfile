@@ -1,0 +1,31 @@
+# HTTPS automático (Let's Encrypt). DOMINIO vem do .env de produção.
+
+{$DOMINIO} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+
+	handle {
+		root * /srv
+		# O service worker precisa ser revalidado sempre, senão o app não atualiza.
+		header /sw.js Cache-Control "no-cache"
+		header /_nuxt/* Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# Comprovantes e PDFs: o navegador abre links assinados direto no armazenamento.
+# O Host original é repassado para a assinatura conferir.
+arquivos.{$DOMINIO} {
+	reverse_proxy s3:9000
+}

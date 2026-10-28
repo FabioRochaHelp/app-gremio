@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#7a1f1f"/>
+  <!-- xícara de café -->
+  <path d="M130 210h220v70c0 66-49 112-110 112s-110-46-110-112z" fill="#faf7f2"/>
+  <path d="M350 230h22c32 0 52 22 52 48s-20 48-52 48h-30" fill="none" stroke="#faf7f2" stroke-width="26" stroke-linecap="round"/>
+  <path d="M110 420h292" stroke="#faf7f2" stroke-width="26" stroke-linecap="round"/>
+  <path d="M200 110c-14 18 14 34 0 56M260 96c-14 22 14 42 0 70M320 110c-14 18 14 34 0 56" fill="none" stroke="#e8c27a" stroke-width="18" stroke-linecap="round"/>
+</svg>

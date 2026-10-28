@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.nuxt
+**/.nuxt-e2e
+**/.output
+**/.data
+**/test-results
+**/playwright-report
+**/.env
+infra/.env.prod
+infra/s3.prod.json
+infra/backups

@@ -1,0 +1,39 @@
+# Serviços de apoio para desenvolvimento: banco, fila e armazenamento de arquivos.
+name: gremio-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gremio
+      POSTGRES_PASSWORD: gremio
+      POSTGRES_DB: gremio
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gremio"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # Armazenamento S3-compatível para comprovantes e PDFs. O MinIO deixou de
+  # publicar imagens públicas; em produção pode ser trocado por R2 só pelo .env.
+  # O bucket é criado pela API na inicialização.
+  s3:
+    image: chrislusf/seaweedfs:4.30
+    command: server -dir=/data -s3 -s3.port=9000 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=1024
+    ports:
+      - "9000:9000"
+    volumes:
+      - s3data:/data
+      - ./s3.json:/etc/seaweedfs/s3.json:ro
+
+volumes:
+  pgdata:
+  s3data:

@@ -1,0 +1,18 @@
+# PWA estático servido pelo Caddy, que também faz o proxy de /api e o HTTPS.
+#   docker build -f infra/Dockerfile.web .
+FROM node:22-bookworm-slim AS build
+RUN corepack enable
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/web/package.json apps/web/
+COPY apps/api/package.json apps/api/
+# Sem scripts: o "nuxt prepare" do postinstall roda no build, já com o código copiado.
+RUN COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile --ignore-scripts --filter @gremio/web...
+COPY packages/shared packages/shared
+COPY apps/web apps/web
+RUN pnpm --filter @gremio/shared build && pnpm --filter @gremio/web build
+
+FROM caddy:2.10-alpine
+COPY infra/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/apps/web/.output/public /srv

@@ -1,0 +1,32 @@
+{
+  "name": "@gremio/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "typecheck": "nuxt typecheck",
+    "icones": "pwa-assets-generator --preset minimal-2023 public/icone.svg",
+    "e2e": "node e2e/preparar.mjs && playwright test"
+  },
+  "dependencies": {
+    "@gremio/shared": "workspace:*",
+    "@pinia/nuxt": "^0.11.3",
+    "nuxt": "~3.21.0",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.0",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@vite-pwa/assets-generator": "^1.0.0",
+    "@vite-pwa/nuxt": "^1.1.1",
+    "pdf-lib": "1.17.1",
+    "typescript": "~5.9.3",
+    "vue-tsc": "^2.2.0",
+    "workbox-precaching": "^7.3.0"
+  }
+}

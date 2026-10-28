@@ -1,0 +1,186 @@
+// Modelo de dados do App do Grêmio — ver docs/project.md.
+// Valores monetários em centavos (Int). Competência no formato "YYYY-MM".
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Perfil {
+  ASSOCIADO
+  TESOUREIRO
+}
+
+enum Situacao {
+  ATIVO
+  INADIMPLENTE
+  ISENTO
+}
+
+enum StatusMensalidade {
+  ABERTA
+  EM_ANALISE
+  EM_REVISAO
+  PAGA
+  ISENTA
+}
+
+enum TipoBaixa {
+  AUTOMATICA
+  MANUAL
+}
+
+enum TipoLancamento {
+  ENTRADA
+  SAIDA
+  ESTORNO
+}
+
+model Associado {
+  id              String    @id @default(uuid())
+  nome            String
+  re              String    @unique
+  posto           String
+  unidade         String
+  perfil          Perfil    @default(ASSOCIADO)
+  situacao        Situacao  @default(ATIVO)
+  senhaHash       String?   @map("senha_hash")
+  // Incrementado na troca de senha para invalidar refresh tokens antigos.
+  tokenVersao     Int       @default(0) @map("token_versao")
+  codigoConvite   String?   @map("codigo_convite")
+  conviteExpiraEm DateTime? @map("convite_expira_em")
+  termoAceitoEm   DateTime? @map("termo_aceito_em")
+  criadoEm        DateTime  @default(now()) @map("criado_em")
+
+  mensalidades      Mensalidade[]
+  lancamentos       Lancamento[]
+  fechamentos       FechamentoMensal[]
+  pushSubscriptions PushSubscription[]
+
+  @@map("associados")
+}
+
+// Linha única (id = 1) com os dados de cobrança do grêmio.
+model Config {
+  id               Int     @id @default(1)
+  valorMensalidade Int     @map("valor_mensalidade")
+  chavePix         String  @map("chave_pix")
+  cnpj             String?
+  nomeRecebedor    String  @map("nome_recebedor")
+  cidade           String
+
+  @@map("config")
+}
+
+model Categoria {
+  id    String  @id @default(uuid())
+  nome  String  @unique
+  ativa Boolean @default(true)
+
+  lancamentos Lancamento[]
+
+  @@map("categorias")
+}
+
+model Mensalidade {
+  id             String            @id @default(uuid())
+  associadoId    String            @map("associado_id")
+  competencia    String
+  valor          Int
+  status         StatusMensalidade @default(ABERTA)
+  comprovanteKey String?           @map("comprovante_key")
+  // ID fim-a-fim do Pix; único para impedir reaproveitar o mesmo comprovante.
+  e2eId          String?           @unique @map("e2e_id")
+  tipoBaixa      TipoBaixa?        @map("tipo_baixa")
+  motivoRecusa   String?           @map("motivo_recusa")
+  dadosExtraidos Json?             @map("dados_extraidos")
+  lancamentoId   String?           @unique @map("lancamento_id")
+  criadoEm       DateTime          @default(now()) @map("criado_em")
+  atualizadoEm   DateTime          @updatedAt @map("atualizado_em")
+
+  associado   Associado    @relation(fields: [associadoId], references: [id])
+  // Baixa vigente; um estorno a desfaz e uma nova baixa a substitui.
+  lancamento  Lancamento?  @relation("BaixaAtual", fields: [lancamentoId], references: [id])
+  // Todos os lançamentos (baixas e estornos) já feitos para esta mensalidade.
+  lancamentos Lancamento[] @relation("OrigemMensalidade")
+
+  @@unique([associadoId, competencia])
+  @@index([status])
+  @@map("mensalidades")
+}
+
+// Imutável: bloqueado para UPDATE/DELETE pela extensão do Prisma e por trigger.
+model Lancamento {
+  id             String         @id @default(uuid())
+  tipo           TipoLancamento
+  categoriaId    String?        @map("categoria_id")
+  valor          Int
+  descricao      String
+  comprovanteKey String?        @map("comprovante_key")
+  autorId        String         @map("autor_id")
+  data           DateTime
+  competencia    String
+  estornoDeId    String?        @unique @map("estorno_de_id")
+  // Lançamento que nasceu de uma mensalidade (baixa ou estorno dela): pagador e comprovante restritos.
+  mensalidadeId  String?        @map("mensalidade_id")
+  motivoEstorno  String?        @map("motivo_estorno")
+  criadoEm       DateTime       @default(now()) @map("criado_em")
+
+  categoria         Categoria?   @relation(fields: [categoriaId], references: [id])
+  autor             Associado    @relation(fields: [autorId], references: [id])
+  estornoDe         Lancamento?  @relation("Estorno", fields: [estornoDeId], references: [id])
+  estornadoPor      Lancamento?  @relation("Estorno")
+  mensalidade       Mensalidade? @relation("BaixaAtual")
+  origemMensalidade Mensalidade? @relation("OrigemMensalidade", fields: [mensalidadeId], references: [id], onDelete: Restrict)
+
+  @@index([competencia])
+  @@index([mensalidadeId])
+  @@map("lancamentos")
+}
+
+// Imutável após o fechamento; só o pdf_key pode ser preenchido depois (gerado em fila).
+model FechamentoMensal {
+  id           String   @id @default(uuid())
+  competencia  String   @unique
+  saldoSistema Int      @map("saldo_sistema")
+  saldoBanco   Int      @map("saldo_banco")
+  extratoKey   String   @map("extrato_key")
+  pdfKey       String?  @map("pdf_key")
+  divergencias Json
+  fechadoPorId String   @map("fechado_por_id")
+  fechadoEm    DateTime @default(now()) @map("fechado_em")
+
+  fechadoPor Associado @relation(fields: [fechadoPorId], references: [id])
+
+  @@map("fechamentos_mensais")
+}
+
+model PushSubscription {
+  id          String   @id @default(uuid())
+  associadoId String   @map("associado_id")
+  endpoint    String   @unique
+  p256dh      String
+  auth        String
+  criadoEm    DateTime @default(now()) @map("criado_em")
+
+  associado Associado @relation(fields: [associadoId], references: [id], onDelete: Cascade)
+
+  @@map("push_subscriptions")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tabela     String
+  registroId String   @map("registro_id")
+  acao       String
+  autorId    String?  @map("autor_id")
+  dados      Json
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  @@index([tabela, registroId])
+  @@map("audit_log")
+}

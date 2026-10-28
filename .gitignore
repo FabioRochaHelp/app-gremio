@@ -1,0 +1,15 @@
+node_modules
+dist
+.output
+.nuxt
+.data
+coverage
+.env
+*.log
+infra/.env.prod
+infra/s3.prod.json
+infra/backups
+test-results
+playwright-report
+.nuxt-e2e
+.output-e2e

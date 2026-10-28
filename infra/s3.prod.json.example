@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "gremio",
+      "credentials": [{ "accessKey": "gremio", "secretKey": "troque-por-uma-chave-longa" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

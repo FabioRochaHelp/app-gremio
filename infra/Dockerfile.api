@@ -1,0 +1,36 @@
+# API e worker (mesma imagem, comandos diferentes). Build a partir da raiz do repositório:
+#   docker build -f infra/Dockerfile.api .
+FROM node:22-bookworm-slim AS base
+# O Prisma escolhe o motor pela versão do openssl: build e runtime precisam ter o mesmo.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/* \
+ && corepack enable
+WORKDIR /app
+
+FROM base AS build
+# O Chromium vem do sistema na imagem final; não baixa o do Puppeteer.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+RUN COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile --filter @gremio/api...
+COPY packages/shared packages/shared
+COPY apps/api apps/api
+RUN pnpm --filter @gremio/shared build \
+ && pnpm --filter @gremio/api exec prisma generate \
+ && pnpm --filter @gremio/api build
+
+FROM base AS runtime
+# Chromium para o PDF da prestação de contas e fontes com acentos.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends chromium fonts-dejavu-core ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    PUPPETEER_SEM_SANDBOX=true \
+    PUPPETEER_SKIP_DOWNLOAD=true
+COPY --from=build /app /app
+WORKDIR /app/apps/api
+USER node
+EXPOSE 4000
+CMD ["node", "dist/main.js"]

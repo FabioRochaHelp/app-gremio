@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "gremio",
+      "credentials": [{ "accessKey": "gremio", "secretKey": "gremio-s3-secret" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

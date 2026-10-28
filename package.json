@@ -1,0 +1,18 @@
+{
+  "name": "app-gremio",
+  "private": true,
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @gremio/api --filter @gremio/web dev",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "build:shared": "pnpm --filter @gremio/shared build",
+    "dev:api": "pnpm --filter @gremio/api dev",
+    "dev:web": "pnpm --filter @gremio/web dev",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  }
+}
