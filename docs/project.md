@@ -102,7 +102,7 @@ O PWA conversa apenas com a API. A fila dispara as notificações e gera o PDF s
 Tabela
 Campos principais
 associados
-nome, RE, posto, unidade, perfil, situação, aceite do termo
+nome, RE, posto, unidade, celular (para cobrança por WhatsApp), perfil, situação, aceite do termo
 mensalidades
 associado, competência, valor, status, comprovante PDF, ID E2E (único), tipo de baixa (automática ou manual), motivo de recusa
 lancamentos

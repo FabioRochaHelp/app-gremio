@@ -9,6 +9,14 @@ const re = z
   .transform((v) => v.replace(/\D/g, ''))
   .pipe(z.string().min(3, 'RE inválido').max(12, 'RE inválido'));
 
+// Celular com DDD; vazio vira null. Guardado como 55 + DDD + número, formato usado pelo WhatsApp.
+const celular = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/\D/g, '').replace(/^55(?=\d{11}$)/, ''))
+  .pipe(z.union([z.literal(''), z.string().regex(/^[1-9]{2}9\d{8}$/, 'Celular inválido: informe DDD e os 9 dígitos')]))
+  .transform((v) => (v ? `55${v}` : null));
+
 const senha = z.string().min(8, 'A senha precisa de pelo menos 8 caracteres').max(128);
 
 export const loginSchema = z.object({
@@ -17,9 +25,15 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/**
+ * Código do primeiro acesso de associados: fácil de passar, e o convite ainda expira em 7 dias.
+ * Redefinição de senha e contas de tesoureiro usam código aleatório de 8 caracteres.
+ */
+export const CODIGO_PRIMEIRO_ACESSO = 'ACEITAR';
+
 export const ativarSchema = z.object({
   re,
-  codigo: z.string().trim().toUpperCase().length(8, 'Código inválido'),
+  codigo: z.string().trim().toUpperCase().min(7, 'Código inválido').max(8, 'Código inválido'),
   senha,
 });
 export type AtivarInput = z.infer<typeof ativarSchema>;
@@ -35,12 +49,14 @@ export const criarAssociadoSchema = z.object({
   re,
   posto: z.string().trim().min(1).max(60),
   unidade: z.string().trim().min(1).max(120),
+  celular: celular.optional(),
   perfil: z.nativeEnum(Perfil).default(Perfil.ASSOCIADO),
   situacao: z.nativeEnum(Situacao).default(Situacao.ATIVO),
 });
 export type CriarAssociadoInput = z.infer<typeof criarAssociadoSchema>;
 
-export const atualizarAssociadoSchema = criarAssociadoSchema.omit({ re: true }).partial();
+// O RE pode ser corrigido: o login usa o id na sessão, então a troca não derruba quem já está logado.
+export const atualizarAssociadoSchema = criarAssociadoSchema.partial();
 export type AtualizarAssociadoInput = z.infer<typeof atualizarAssociadoSchema>;
 
 export const configSchema = z.object({

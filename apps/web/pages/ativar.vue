@@ -35,7 +35,10 @@ async function ativar() {
 <template>
   <div>
     <h1>Ativar acesso</h1>
-    <p class="suave">Use o código de 8 letras que o tesoureiro passou para você. Ele vale por 7 dias.</p>
+    <p class="suave">
+      No primeiro acesso, digite a palavra <strong>ACEITAR</strong> no código. Se pediu para redefinir a senha,
+      use o código de 8 letras que o tesoureiro passou para você. Os códigos valem por 7 dias.
+    </p>
     <form class="cartao" @submit.prevent="ativar">
       <div v-if="erro" class="alerta alerta-erro" role="alert">{{ erro }}</div>
       <div class="campo">
@@ -44,7 +47,7 @@ async function ativar() {
         <span v-if="erros.re" class="erro-campo">{{ erros.re }}</span>
       </div>
       <div class="campo">
-        <label for="codigo">Código de convite</label>
+        <label for="codigo">Código</label>
         <input
           id="codigo"
           v-model="form.codigo"

@@ -1,7 +1,14 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { AtivarInput, LoginInput, RespostaLogin, TrocarSenhaInput, UsuarioSessao } from '@gremio/shared';
+import {
+  CODIGO_PRIMEIRO_ACESSO,
+  type AtivarInput,
+  type LoginInput,
+  type RespostaLogin,
+  type TrocarSenhaInput,
+  type UsuarioSessao,
+} from '@gremio/shared';
 import type { Associado } from '@prisma/client';
 import { compare, hash, hashSync } from 'bcryptjs';
 import { timingSafeEqual } from 'node:crypto';
@@ -43,10 +50,13 @@ export class AuthService {
   async ativar({ re, codigo, senha }: AtivarInput): Promise<Sessao> {
     const associado = await this.prisma.db.associado.findUnique({ where: { re } });
     const convite = associado?.codigoConvite;
+    // Tesoureiro nunca ativa com a palavra fixa, nem se foi promovido com o convite ainda pendente.
+    const palavraFixa = codigo.toUpperCase() === CODIGO_PRIMEIRO_ACESSO;
     const valido =
       convite &&
       associado.conviteExpiraEm &&
       associado.conviteExpiraEm > new Date() &&
+      !(palavraFixa && associado.perfil === 'TESOUREIRO') &&
       timingSafeEqual(Buffer.from(convite), Buffer.from(hashConvite(codigo)));
     if (!associado || !valido) {
       throw new UnauthorizedException('Código de convite inválido ou expirado');

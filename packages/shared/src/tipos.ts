@@ -21,6 +21,8 @@ export interface AssociadoDto {
   re: string;
   posto: string;
   unidade: string;
+  /** 55 + DDD + número, só dígitos. */
+  celular: string | null;
   perfil: Perfil;
   situacao: Situacao;
   ativado: boolean;

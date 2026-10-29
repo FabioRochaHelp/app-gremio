@@ -46,6 +46,8 @@ model Associado {
   re              String    @unique
   posto           String
   unidade         String
+  // Só dígitos, com DDI 55 (ex.: 5511987654321), pronto para o envio de cobranças por WhatsApp.
+  celular         String?
   perfil          Perfil    @default(ASSOCIADO)
   situacao        Situacao  @default(ATIVO)
   senhaHash       String?   @map("senha_hash")

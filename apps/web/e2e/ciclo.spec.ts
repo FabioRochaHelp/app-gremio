@@ -92,7 +92,7 @@ test('ciclo completo: mensalidade, despesa, estorno, transparência e fechamento
     await tesoureira.fill('#unidade', '1º GB');
     await tesoureira.getByRole('button', { name: 'Cadastrar e gerar código' }).click();
     codigo = (await tesoureira.locator('.codigo-convite').textContent())!.trim();
-    expect(codigo).toMatch(/^[A-Z0-9]{8}$/);
+    expect(codigo).toBe('ACEITAR');
 
     await tesoureira.goto('/tesouraria/mensalidades');
     await tesoureira.getByRole('button', { name: /Gerar mensalidades/ }).click();
