@@ -7,9 +7,11 @@ declare const self: ServiceWorkerGlobalScope;
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
-self.addEventListener('message', (evento) => {
-  if (evento.data?.type === 'SKIP_WAITING') self.skipWaiting();
-});
+// Com registerType 'autoUpdate', a versão nova precisa assumir sozinha: sem isso ela fica
+// esperando fechar todas as janelas do app, o que no PWA instalado quase nunca acontece.
+// Ao assumir, o plugin recarrega a página aberta.
+self.skipWaiting();
+self.addEventListener('activate', (evento) => evento.waitUntil(self.clients.claim()));
 
 // Notificações de cada lançamento (Web Push). O envio é ligado na semana 3.
 self.addEventListener('push', (evento) => {

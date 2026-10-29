@@ -40,6 +40,8 @@ export default defineNuxtConfig({
     srcDir: 'service-worker',
     filename: 'sw.ts',
     registerType: 'autoUpdate',
+    // O app fica aberto por dias no celular; procura versão nova a cada hora, não só ao abrir.
+    client: { periodicSyncForUpdates: 3600 },
     manifest: {
       name: 'Grêmio — Transparência',
       short_name: 'Grêmio',
