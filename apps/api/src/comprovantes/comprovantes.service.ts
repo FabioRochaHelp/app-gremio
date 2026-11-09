@@ -48,7 +48,7 @@ export class ComprovantesService {
 
     const dados = lerComprovante(texto);
     const config = await this.configuracao.obter();
-    const recebedor = { chavePix: config.chavePix, cnpj: config.cnpj };
+    const recebedor = { chavePix: config.chavePix, cnpj: config.cnpj, nomeRecebedor: config.nomeRecebedor };
     // Conta também a própria mensalidade: se a baixa dela foi estornada, o E2E continua gravado
     // e o mesmo comprovante não pode ser aceito de novo.
     const e2eJaUsado =

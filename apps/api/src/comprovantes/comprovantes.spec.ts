@@ -138,4 +138,35 @@ describe('recebedor', () => {
       true,
     );
   });
+
+  // Pix por QR Code no BB: o comprovante traz o nome do recebedor, não a chave.
+  const QR_CODE_BB = `Comprovante BB
+R$ 20,00
+09/11/2026 às 08:20:05
+Pix - QR Code
+Recebedor
+Fulano B C Exemplo
+CPF
+***.626.348-**
+Instituição
+31872495 BCO C6 S.A.
+Pagador
+Ciclano de Tal
+CPF
+***.944.188-**`;
+
+  it('aceita o nome do recebedor quando o comprovante não traz a chave', () => {
+    const recebedor = { chavePix: 'gremio@exemplo.com.br', cnpj: null, nomeRecebedor: 'Fulano B. C. Exemplo' };
+    expect(recebedorConfere(QR_CODE_BB, recebedor)).toBe(true);
+  });
+
+  it('não aceita o nome quando ele é o do pagador', () => {
+    const recebedor = { chavePix: 'gremio@exemplo.com.br', cnpj: null, nomeRecebedor: 'Ciclano de Tal' };
+    expect(recebedorConfere(QR_CODE_BB, recebedor)).toBe(false);
+  });
+
+  it('não aceita nome de uma palavra só', () => {
+    const recebedor = { chavePix: 'gremio@exemplo.com.br', cnpj: null, nomeRecebedor: 'Fulano' };
+    expect(recebedorConfere(QR_CODE_BB, recebedor)).toBe(false);
+  });
 });

@@ -7,6 +7,8 @@ import type { DadosLidos } from './leitura';
 export interface DadosRecebedor {
   chavePix: string;
   cnpj: string | null;
+  /** Nome do titular como o banco mostra; pagamentos por QR Code só trazem o nome, sem a chave. */
+  nomeRecebedor?: string;
 }
 
 export interface Contexto {
@@ -31,7 +33,33 @@ function contemDigitos(texto: string, digitos: string): boolean {
   return new RegExp(`(?<!\\d)${padrao}(?!\\d)`).test(texto);
 }
 
-export function recebedorConfere(texto: string, { chavePix, cnpj }: DadosRecebedor): boolean {
+// Rótulos que abrem os blocos de quem recebeu e de quem pagou, no início da linha.
+const ROTULO_RECEBEDOR = /^(dados do recebedor|recebedor|favorecido|destino|para)\b/;
+const ROTULO_PAGADOR = /^(dados do pagador|pagador|origem|de)\b/;
+
+/** Só palavras, para comparar nomes ignorando pontuação, acentos e espaços extras. */
+function soPalavras(texto: string): string {
+  return semAcento(texto).replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/** Linhas do bloco do recebedor, para o nome não casar com o do pagador. */
+function trechoRecebedor(texto: string): string | null {
+  const linhas = semAcento(texto).split('\n').map((linha) => linha.trim());
+  const inicio = linhas.findIndex((linha) => ROTULO_RECEBEDOR.test(linha));
+  if (inicio < 0) return null;
+  const fim = linhas.findIndex((linha, i) => i > inicio && ROTULO_PAGADOR.test(linha));
+  return linhas.slice(inicio, fim < 0 ? undefined : fim).join('\n');
+}
+
+function nomeConfere(texto: string, nome: string): boolean {
+  const procurado = soPalavras(nome);
+  // Um nome só (ex.: "Marlon") é comum demais para identificar o recebedor.
+  if (procurado.split(' ').length < 2) return false;
+  const trecho = trechoRecebedor(texto);
+  return trecho !== null && ` ${soPalavras(trecho)} `.includes(` ${procurado} `);
+}
+
+export function recebedorConfere(texto: string, { chavePix, cnpj, nomeRecebedor }: DadosRecebedor): boolean {
   const normalizado = semAcento(texto);
   const chave = semAcento(chavePix.trim());
   const digitosChave = chave.replace(/\D/g, '');
@@ -44,7 +72,8 @@ export function recebedorConfere(texto: string, { chavePix, cnpj }: DadosRecebed
   } else if (normalizado.includes(chave)) {
     return true;
   }
-  return cnpj ? contemDigitos(normalizado, cnpj) : false;
+  if (cnpj && contemDigitos(normalizado, cnpj)) return true;
+  return nomeRecebedor ? nomeConfere(texto, nomeRecebedor) : false;
 }
 
 function competenciasAceitas(competencia: string): string[] {
@@ -65,7 +94,7 @@ export function validarComprovante(dados: DadosLidos, texto: string, ctx: Contex
   }
 
   if (!recebedorConfere(texto, ctx.recebedor)) {
-    return { aprovado: false, motivo: 'O recebedor do Pix não é a chave nem o CNPJ do grêmio' };
+    return { aprovado: false, motivo: 'O recebedor do Pix não é a chave, o CNPJ nem o nome do recebedor do grêmio' };
   }
 
   if (dados.valor !== ctx.valorMensalidade) {
