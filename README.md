@@ -107,8 +107,8 @@ SeaweedFS, que também fala S3; em produção pode ser ele ou o Cloudflare R2, t
 
 ## Produção
 
-Uma VPS com Docker (2 vCPU, 2 a 4 GB). Aponte o DNS de `DOMINIO` e de `arquivos.DOMINIO` para ela e
-configure o proxy reverso do servidor (com HTTPS) para repassar os dois para `127.0.0.1:3000`,
+Uma VPS com Docker (2 vCPU, 2 a 4 GB). Aponte o DNS de `DOMINIO` para ela e
+configure o proxy reverso do servidor (com HTTPS) para repassá-lo para `127.0.0.1:3000`,
 preservando o cabeçalho `Host`.
 
 ```bash
@@ -120,9 +120,9 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm api node_modules/.bin/ts-node prisma/seed.ts
 ```
 
-Serviços: `caddy` (porta 3000: PWA estático, proxy de `/api` e de `arquivos.DOMINIO`), `api`, `worker` (filas, leitura
+Serviços: `caddy` (porta 3000: PWA estático, proxy de `/api` e dos arquivos), `api`, `worker` (filas, leitura
 de comprovantes, avisos e PDF mensal), `migrate` (aplica as migrations antes da API subir), `postgres`,
-`redis`, `s3` (SeaweedFS, comprovantes e PDFs em `arquivos.DOMINIO`) e `backup`.
+`redis`, `s3` (SeaweedFS, comprovantes e PDFs em `DOMINIO/S3_BUCKET/...`) e `backup`.
 
 O `backup` grava todo dia em `infra/backups` o banco (`pg_dump`) e os arquivos, guardando 14 dias.
 **Copie essa pasta para fora da VPS** (outro provedor, nuvem ou HD): backup só na mesma máquina não

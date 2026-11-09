@@ -11,10 +11,10 @@
 :3000 {
 	encode zstd gzip
 
-	# Comprovantes e PDFs: o navegador abre links assinados direto no armazenamento.
-	# O Host original é repassado para a assinatura conferir.
-	@arquivos host arquivos.{$DOMINIO}
-	handle @arquivos {
+	# Comprovantes e PDFs: o navegador abre links assinados direto no armazenamento, no
+	# caminho do bucket (S3 path-style), sem precisar de subdomínio. Host e caminho seguem
+	# como vieram, senão a assinatura não confere.
+	handle /{$S3_BUCKET}/* {
 		reverse_proxy s3:9000
 	}
 

@@ -1,5 +1,5 @@
 # Produção numa VPS (fora da rede da corporação), atrás do proxy reverso do servidor,
-# que faz o HTTPS e repassa DOMINIO e arquivos.DOMINIO para 127.0.0.1:3000.
+# que faz o HTTPS e repassa DOMINIO para 127.0.0.1:3000.
 # Uso, a partir da pasta infra/:
 #   cp .env.prod.example .env.prod   # e preencha
 #   cp s3.prod.json.example s3.prod.json   # e troque as chaves
@@ -72,7 +72,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       REDIS_URL: redis://redis:6379
       S3_ENDPOINT: http://s3:9000
-      S3_ENDPOINT_PUBLICO: https://arquivos.${DOMINIO}
+      S3_ENDPOINT_PUBLICO: https://${DOMINIO}
       PROCESSAR_FILAS: "false"
       # Dois saltos: proxy reverso do servidor e o Caddy.
       TRUST_PROXY: "2"
@@ -85,7 +85,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       REDIS_URL: redis://redis:6379
       S3_ENDPOINT: http://s3:9000
-      S3_ENDPOINT_PUBLICO: https://arquivos.${DOMINIO}
+      S3_ENDPOINT_PUBLICO: https://${DOMINIO}
       PROCESSAR_FILAS: "true"
 
   caddy:
@@ -95,6 +95,7 @@ services:
     restart: unless-stopped
     environment:
       DOMINIO: ${DOMINIO}
+      S3_BUCKET: ${S3_BUCKET}
     # Só o proxy reverso do servidor acessa; ele faz o HTTPS e repassa para cá.
     ports:
       - "127.0.0.1:3000:3000"
