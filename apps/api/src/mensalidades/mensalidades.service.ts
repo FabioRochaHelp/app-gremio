@@ -8,6 +8,7 @@ import {
 import {
   competenciaDe,
   rotuloCompetencia,
+  type BaixaManualInput,
   type CobrancaPixDto,
   type DadosExtraidos,
   type MensalidadeDto,
@@ -17,7 +18,9 @@ import { Prisma, type Associado, type Mensalidade, type TipoBaixa } from '@prism
 import type { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import type { UsuarioAutenticado } from '../auth/decorators';
-import { pareceUmPdf } from '../comprovantes/pdf';
+import { dataDoLancamento, tipoDoArquivo } from '../common/arquivo';
+import { lerComprovante, type DadosLidos } from '../comprovantes/leitura';
+import { extrairTexto, pareceUmPdf } from '../comprovantes/pdf';
 import { ConfiguracaoService } from '../configuracao/configuracao.service';
 import { competenciaTravada } from '../fechamentos/trava';
 import { DadosLerComprovante, FILA_COMPROVANTES, JOB_LER_COMPROVANTE } from '../filas/filas';
@@ -32,6 +35,8 @@ interface Baixa {
   e2eId: string | null;
   dataPagamento: Date | null;
   autorId: string;
+  /** Comprovante anexado pelo tesoureiro; substitui o que o associado tenha enviado. */
+  comprovanteKey?: string;
 }
 
 @Injectable()
@@ -157,6 +162,63 @@ export class MensalidadesService {
     return paraDto(await this.prisma.db.mensalidade.findUniqueOrThrow({ where: { id } }));
   }
 
+  /**
+   * Recebimento pelo tesoureiro: o associado mandou o comprovante por fora do app (ex.: WhatsApp).
+   * Vale para mensalidade em aberto ou em revisão; o comprovante anexado substitui o anterior.
+   */
+  async baixaManual(
+    id: string,
+    dados: BaixaManualInput,
+    arquivo: Express.Multer.File | undefined,
+    tesoureiroId: string,
+  ): Promise<MensalidadeDto> {
+    const mensalidade = await this.prisma.db.mensalidade.findUniqueOrThrow({ where: { id } });
+    if (mensalidade.status !== 'ABERTA' && mensalidade.status !== 'EM_REVISAO') {
+      throw new ConflictException('Só é possível registrar o pagamento de mensalidade em aberto ou em revisão');
+    }
+    const tipo = arquivo && tipoDoArquivo(arquivo.buffer);
+    if (!arquivo || !tipo) {
+      throw new BadRequestException('Anexe o comprovante (PDF ou foto: JPG, PNG, WEBP ou HEIC)');
+    }
+
+    // Do PDF dá para ler o ID da transação e a data; o ID impede usar o mesmo comprovante duas vezes.
+    let lidos: DadosLidos | null = null;
+    if (tipo.extensao === 'pdf') {
+      try {
+        lidos = lerComprovante(await extrairTexto(arquivo.buffer));
+      } catch {
+        // PDF sem texto ou ilegível: vale o que o tesoureiro informou.
+      }
+    }
+    const e2eId = dados.e2eId ?? lidos?.e2eId ?? null;
+    if (e2eId && (await this.prisma.db.mensalidade.count({ where: { e2eId, id: { not: id } } })) > 0) {
+      throw new ConflictException('Este comprovante (ID da transação) já foi usado em outra mensalidade');
+    }
+    const agora = new Date();
+    const dataPagamento = dados.data ? dataDoLancamento(dados.data, agora) : (lidos?.data ?? null);
+    if (dataPagamento && dataPagamento.getTime() > agora.getTime() + 24 * 60 * 60 * 1000) {
+      throw new BadRequestException('A data do pagamento está no futuro');
+    }
+
+    const chave = `comprovantes/mensalidades/${mensalidade.competencia}/${mensalidade.id}-${randomUUID()}.${tipo.extensao}`;
+    await this.storage.enviar(chave, arquivo.buffer, tipo.contentType);
+    try {
+      await this.registrarBaixa(id, {
+        tipoBaixa: 'MANUAL',
+        e2eId,
+        dataPagamento,
+        autorId: tesoureiroId,
+        comprovanteKey: chave,
+      });
+    } catch (erro) {
+      if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === 'P2002') {
+        throw new ConflictException('Este comprovante (ID da transação) já foi usado em outra mensalidade');
+      }
+      throw erro;
+    }
+    return paraDto(await this.prisma.db.mensalidade.findUniqueOrThrow({ where: { id } }));
+  }
+
   /** Devolve ao associado para enviar outro comprovante. */
   async recusar(id: string, motivo: string): Promise<MensalidadeDto> {
     const mensalidade = await this.prisma.db.mensalidade.findUniqueOrThrow({ where: { id } });
@@ -202,7 +264,7 @@ export class MensalidadesService {
           tipo: 'ENTRADA',
           valor: mensalidade.valor,
           descricao: `Mensalidade de ${rotuloCompetencia(mensalidade.competencia)}`,
-          comprovanteKey: mensalidade.comprovanteKey,
+          comprovanteKey: baixa.comprovanteKey ?? mensalidade.comprovanteKey,
           autorId: baixa.autorId,
           data,
           competencia: competenciaDe(data),
@@ -218,6 +280,7 @@ export class MensalidadesService {
           e2eId: baixa.e2eId,
           lancamentoId: lancamento.id,
           motivoRecusa: null,
+          ...(baixa.comprovanteKey && { comprovanteKey: baixa.comprovanteKey }),
         },
       });
       return mensalidade.associadoId;

@@ -13,9 +13,11 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   aprovarMensalidadeSchema,
+  baixaManualSchema,
   gerarMensalidadesSchema,
   recusarMensalidadeSchema,
   type AprovarMensalidadeInput,
+  type BaixaManualInput,
   type GerarMensalidadesInput,
   type RecusarMensalidadeInput,
 } from '@gremio/shared';
@@ -80,6 +82,20 @@ export class MensalidadesController {
     @Usuario() usuario: UsuarioAutenticado,
   ) {
     return this.mensalidades.aprovar(id, e2eId, usuario.id);
+  }
+
+  /** O associado mandou o comprovante por fora do app; o tesoureiro anexa e dá a baixa. */
+  @Perfis('TESOUREIRO')
+  @Post(':id/baixa-manual')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('comprovante', { limits: { fileSize: TAMANHO_MAXIMO_COMPROVANTE, files: 1 } }))
+  baixaManual(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(baixaManualSchema)) dados: BaixaManualInput,
+    @UploadedFile() arquivo: Express.Multer.File | undefined,
+    @Usuario() usuario: UsuarioAutenticado,
+  ) {
+    return this.mensalidades.baixaManual(id, dados, arquivo, usuario.id);
   }
 
   @Perfis('TESOUREIRO')

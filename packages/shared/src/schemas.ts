@@ -86,15 +86,29 @@ export const gerarMensalidadesSchema = z.object({
 });
 export type GerarMensalidadesInput = z.infer<typeof gerarMensalidadesSchema>;
 
+const e2eOpcional = z
+  .string()
+  .trim()
+  .regex(REGEX_E2E, 'ID da transação inválido')
+  .optional()
+  .or(z.literal('').transform(() => undefined));
+
 export const aprovarMensalidadeSchema = z.object({
-  e2eId: z
+  e2eId: e2eOpcional,
+});
+export type AprovarMensalidadeInput = z.infer<typeof aprovarMensalidadeSchema>;
+
+/** Recebimento registrado pelo tesoureiro com o comprovante que o associado mandou por fora do app. */
+export const baixaManualSchema = z.object({
+  e2eId: e2eOpcional,
+  /** Dia do pagamento (AAAA-MM-DD); sem ele vale a data lida do comprovante ou hoje. */
+  data: z
     .string()
-    .trim()
-    .regex(REGEX_E2E, 'ID da transação inválido')
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida')
     .optional()
     .or(z.literal('').transform(() => undefined)),
 });
-export type AprovarMensalidadeInput = z.infer<typeof aprovarMensalidadeSchema>;
+export type BaixaManualInput = z.infer<typeof baixaManualSchema>;
 
 export const recusarMensalidadeSchema = z.object({
   motivo: z.string().trim().min(5, 'Explique o motivo para o associado').max(300),
