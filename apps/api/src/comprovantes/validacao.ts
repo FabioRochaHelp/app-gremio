@@ -34,8 +34,9 @@ function contemDigitos(texto: string, digitos: string): boolean {
 }
 
 // Rótulos que abrem os blocos de quem recebeu e de quem pagou, no início da linha.
-const ROTULO_RECEBEDOR = /^(dados do recebedor|recebedor|favorecido|destino|para)\b/;
-const ROTULO_PAGADOR = /^(dados do pagador|pagador|origem|de)\b/;
+// O Bradesco usa "Dados de quem recebeu" / "Dados de quem pagou".
+const ROTULO_RECEBEDOR = /^(dados do recebedor|(dados de )?quem recebeu|recebedor|favorecido|destino|para)\b/;
+const ROTULO_PAGADOR = /^(dados do pagador|(dados de )?quem pagou|pagador|origem|de)\b/;
 
 /** Só palavras, para comparar nomes ignorando pontuação, acentos e espaços extras. */
 function soPalavras(texto: string): string {
