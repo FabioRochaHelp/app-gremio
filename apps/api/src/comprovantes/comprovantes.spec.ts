@@ -165,6 +165,41 @@ CPF
     expect(recebedorConfere(QR_CODE_BB, recebedor)).toBe(false);
   });
 
+  // Bradesco: blocos "Dados de quem recebeu" e "Dados de quem pagou", também sem a chave.
+  const PIX_BRADESCO = `Comprovante de pagamento Pix
+24/11/2026 - 16:57:21
+Valor: R$ 20,00
+Dados de quem recebeu
+Nome: FULANO B C EXEMPLO
+CPF/CNPJ: ***.626.348-**
+Instituição: BCO C6 S.A.
+Dados do pagamento
+Tipo: Pix
+Valor: R$ 20,00
+Identificador: M202611120958f5af64
+Data do débito: 24/11/2026 - 16:56:39
+Número de controle: E60746948202611241956A0404oGvaK8
+Dados de quem pagou
+Nome: CICLANO DE TAL
+CPF: ***.507.308-**
+Esta transação foi feita via App Bradesco`;
+
+  it('aceita o nome do recebedor no comprovante do Bradesco', () => {
+    const recebedor = { chavePix: 'gremio@exemplo.com.br', cnpj: null, nomeRecebedor: 'Fulano B. C. Exemplo' };
+    expect(recebedorConfere(PIX_BRADESCO, recebedor)).toBe(true);
+    expect(lerComprovante(PIX_BRADESCO)).toEqual({
+      banco: 'Bradesco',
+      e2eId: 'E60746948202611241956A0404oGvaK8',
+      valor: 2000,
+      data: new Date('2026-11-24T19:56:00Z'),
+    });
+  });
+
+  it('não aceita o nome do pagador no comprovante do Bradesco', () => {
+    const recebedor = { chavePix: 'gremio@exemplo.com.br', cnpj: null, nomeRecebedor: 'Ciclano de Tal' };
+    expect(recebedorConfere(PIX_BRADESCO, recebedor)).toBe(false);
+  });
+
   it('não aceita nome de uma palavra só', () => {
     const recebedor = { chavePix: 'gremio@exemplo.com.br', cnpj: null, nomeRecebedor: 'Fulano' };
     expect(recebedorConfere(QR_CODE_BB, recebedor)).toBe(false);

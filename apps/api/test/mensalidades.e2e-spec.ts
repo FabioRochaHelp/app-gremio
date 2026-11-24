@@ -5,7 +5,7 @@ import request from 'supertest';
 import { ComprovantesService } from '../src/comprovantes/comprovantes.service';
 import { MensalidadesService } from '../src/mensalidades/mensalidades.service';
 import { criarApp, criarAssociado } from './app';
-import { CHAVE_GREMIO, comprovanteDeHoje, pdfComTexto, pdfSemTexto } from './comprovantes';
+import { CHAVE_GREMIO, comprovanteDeHoje, pdfComTexto, pdfSemTexto, pngSimples } from './comprovantes';
 
 
 describe('Mensalidades e baixa automática (integração)', () => {
@@ -154,6 +154,73 @@ describe('Mensalidades e baixa automática (integração)', () => {
     const paga = await base.mensalidade.findUniqueOrThrow({ where: { id }, include: { lancamento: true } });
     expect(paga).toMatchObject({ status: 'PAGA', tipoBaixa: 'MANUAL' });
     expect(paga.lancamento?.autorId).toBe(tesoureiro.id);
+  });
+
+  describe('recebimento manual pelo tesoureiro', () => {
+    const baixaManual = (id: string, token: string, arquivo?: { conteudo: Buffer; nome: string; tipo: string }) => {
+      const req = http().post(`/api/mensalidades/${id}/baixa-manual`).set('Authorization', `Bearer ${token}`);
+      return arquivo ? req.attach('comprovante', arquivo.conteudo, { filename: arquivo.nome, contentType: arquivo.tipo }) : req;
+    };
+    // Direto no banco: criarAssociado faz login, e a rota de login tem limite de tentativas.
+    const novaMensalidade = (re: string) =>
+      base.mensalidade.create({
+        data: {
+          competencia,
+          valor: 2000,
+          associado: { create: { nome: `Associado ${re}`, re, posto: 'Sd', unidade: 'GB' } },
+        },
+      });
+    const foto = () => ({ conteudo: pngSimples(), nome: 'print.png', tipo: 'image/png' });
+
+    it('dá baixa com a foto do comprovante e a data informada', async () => {
+      const { id } = await novaMensalidade('800010');
+      const ontem = new Date(Date.now() - 27 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      await baixaManual(id, tesoureiro.token, foto()).field('data', ontem).expect(200);
+
+      const paga = await base.mensalidade.findUniqueOrThrow({ where: { id }, include: { lancamento: true } });
+      expect(paga).toMatchObject({ status: 'PAGA', tipoBaixa: 'MANUAL', e2eId: null });
+      expect(paga.comprovanteKey).toMatch(/\.png$/);
+      expect(paga.lancamento).toMatchObject({ autorId: tesoureiro.id, comprovanteKey: paga.comprovanteKey, valor: 2000 });
+      expect(paga.lancamento?.data.toISOString().slice(0, 10)).toBe(ontem);
+    });
+
+    it('lê o ID da transação do PDF e não aceita o mesmo comprovante duas vezes', async () => {
+      const primeira = await novaMensalidade('800011');
+      const segunda = await novaMensalidade('800012');
+      const { linhas, e2e } = comprovanteDeHoje();
+      const pdf = { conteudo: await pdfComTexto(linhas), nome: 'pix.pdf', tipo: 'application/pdf' };
+
+      await baixaManual(primeira.id, tesoureiro.token, pdf).expect(200);
+      expect((await base.mensalidade.findUniqueOrThrow({ where: { id: primeira.id } })).e2eId).toBe(e2e);
+
+      const repetido = await baixaManual(segunda.id, tesoureiro.token, pdf).expect(409);
+      expect(repetido.body.message).toMatch(/já foi usado/);
+      expect((await base.mensalidade.findUniqueOrThrow({ where: { id: segunda.id } })).status).toBe('ABERTA');
+    });
+
+    it('substitui o comprovante de quem estava em revisão', async () => {
+      const { id } = await novaMensalidade('800013');
+      await base.mensalidade.update({
+        where: { id },
+        data: { status: 'EM_REVISAO', comprovanteKey: 'comprovantes/antigo.pdf', motivoRecusa: 'Valor diferente' },
+      });
+      await baixaManual(id, tesoureiro.token, foto()).expect(200);
+      const paga = await base.mensalidade.findUniqueOrThrow({ where: { id } });
+      expect(paga).toMatchObject({ status: 'PAGA', motivoRecusa: null });
+      expect(paga.comprovanteKey).not.toBe('comprovantes/antigo.pdf');
+    });
+
+    it('exige comprovante, data válida, perfil de tesoureiro e mensalidade pendente', async () => {
+      const { id } = await novaMensalidade('800014');
+      await baixaManual(id, tesoureiro.token).expect(400);
+      await baixaManual(id, tesoureiro.token, { conteudo: Buffer.from('texto'), nome: 'x.txt', tipo: 'text/plain' }).expect(400);
+      await baixaManual(id, tesoureiro.token, foto()).field('data', '2099-01-01').expect(400);
+      await baixaManual(id, associado.token, foto()).expect(403);
+      expect((await base.mensalidade.findUniqueOrThrow({ where: { id } })).status).toBe('ABERTA');
+
+      await baixaManual(id, tesoureiro.token, foto()).expect(200);
+      await baixaManual(id, tesoureiro.token, foto()).expect(409);
+    });
   });
 
   it('marca inadimplência por mensalidade antiga em aberto e regulariza ao pagar', async () => {
